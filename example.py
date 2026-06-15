@@ -157,6 +157,119 @@ def example_normalize_vs_raw():
     print("已保存: output/dev_comparison_raw.png")
 
 
+def example_group_stack():
+    print("\n示例8: 分组叠加在同一张雷达图上（多组对比）")
+
+    dimensions = ['攻击', '防御', '速度', '生命', '暴击', '法力']
+    service = RadarChartService(dimensions=dimensions, normalize=True)
+
+    warriors = [
+        {"name": "战士·张飞", "scores": [88, 95, 60, 92, 55, 40]},
+        {"name": "战士·关羽", "scores": [92, 88, 72, 85, 68, 45]},
+        {"name": "战士·赵云", "scores": [85, 80, 82, 78, 75, 55]},
+    ]
+    mages = [
+        {"name": "法师·诸葛亮", "scores": [90, 40, 65, 55, 85, 98]},
+        {"name": "法师·司马懿", "scores": [88, 45, 70, 52, 90, 92]},
+    ]
+    archers = [
+        {"name": "射手·黄忠", "scores": [95, 50, 68, 65, 92, 60]},
+        {"name": "射手·孙尚香", "scores": [90, 42, 80, 58, 88, 65]},
+    ]
+
+    service.add_group("战士阵营", warriors)
+    service.add_group("法师阵营", mages)
+    service.add_group("射手阵营", archers)
+
+    service.save("output/group_stacked.png",
+                 title="多阵营英雄能力对比（分组叠加）",
+                 rsteps=5,
+                 figsize=(10, 9),
+                 bbox_to_anchor=(1.35, 0))
+    print("已保存: output/group_stacked.png")
+
+
+def example_multi_subplot_by_group():
+    print("\n示例9: 多子图并排对比（按组拆分）")
+
+    dimensions = ['语文', '数学', '英语', '物理', '化学', '生物', '历史']
+    service = RadarChartService(dimensions=dimensions, normalize=True)
+
+    class_a = [
+        {"name": "小明", "scores": [85, 90, 78, 88, 82, 80, 75]},
+        {"name": "小红", "scores": [92, 78, 95, 72, 78, 82, 88]},
+    ]
+    class_b = [
+        {"name": "小李", "scores": [78, 88, 82, 90, 85, 78, 80]},
+        {"name": "小张", "scores": [80, 92, 75, 85, 88, 90, 72]},
+    ]
+    class_c = [
+        {"name": "小王", "scores": [88, 85, 80, 82, 90, 85, 78]},
+        {"name": "小刘", "scores": [75, 95, 72, 92, 82, 78, 85]},
+    ]
+
+    service.add_group("一班", class_a)
+    service.add_group("二班", class_b)
+    service.add_group("三班", class_c)
+
+    layouts = [
+        {"groups": ["一班"], "title": "一班学生成绩"},
+        {"groups": ["二班"], "title": "二班学生成绩"},
+        {"groups": ["三班"], "title": "三班学生成绩"},
+        {"groups": ["一班", "二班", "三班"], "title": "全员对比"},
+    ]
+    service.save_multi("output/multi_subplot_groups.png",
+                       layouts=layouts,
+                       ncols=2,
+                       figsize=(14, 12),
+                       share_legend=True,
+                       super_title="各班级学生成绩雷达图对比")
+    print("已保存: output/multi_subplot_groups.png")
+
+
+def example_multi_subplot_custom():
+    print("\n示例10: 多子图对比（自定义筛选条件）")
+
+    dimensions = ['收入(万元)', '用户数(万)', '评分', '市场份额(%)', '增长率(%)', '利润率(%)']
+    service = RadarChartService(dimensions=dimensions, normalize=True)
+
+    companies = [
+        {"name": "Alpha", "scores": [8000, 1200, 4.6, 30, 90, 25], "group": "大型"},
+        {"name": "Beta",  "scores": [5000, 800,  4.3, 22, 75, 20], "group": "中型"},
+        {"name": "Gamma", "scores": [15000, 2000, 4.8, 45, 60, 30], "group": "大型"},
+        {"name": "Delta", "scores": [2000, 400, 4.0, 10, 120, 15], "group": "中型"},
+        {"name": "Eps",   "scores": [800,  200, 4.2, 5,  150, 12], "group": "小型"},
+        {"name": "Zeta",  "scores": [500,  150, 4.5, 3,  180, 18], "group": "小型"},
+    ]
+    service.add_entities(companies)
+
+    layouts = [
+        {
+            "title": "大型企业",
+            "filter": lambda e: e.get('group') == '大型'
+        },
+        {
+            "title": "中型企业",
+            "filter": lambda e: e.get('group') == '中型'
+        },
+        {
+            "title": "小型企业",
+            "filter": lambda e: e.get('group') == '小型'
+        },
+        {
+            "title": "高增长企业（>100%）",
+            "filter": lambda e: e['scores'][4] > 100
+        },
+    ]
+    service.save_multi("output/multi_subplot_custom.png",
+                       layouts=layouts,
+                       ncols=2,
+                       figsize=(14, 12),
+                       share_legend=True,
+                       super_title="企业多维度指标分场景对比")
+    print("已保存: output/multi_subplot_custom.png")
+
+
 if __name__ == "__main__":
     import os
     os.makedirs("output", exist_ok=True)
@@ -168,5 +281,8 @@ if __name__ == "__main__":
     example_serialization()
     example_normalize_different_scales()
     example_normalize_vs_raw()
+    example_group_stack()
+    example_multi_subplot_by_group()
+    example_multi_subplot_custom()
 
     print("\n所有示例运行完成！请查看 output 目录下的图片文件。")
