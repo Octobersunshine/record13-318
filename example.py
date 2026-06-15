@@ -108,6 +108,55 @@ def example_serialization():
     print("已保存: output/serialization_example.png")
 
 
+def example_normalize_different_scales():
+    print("\n示例6: 不同量纲维度的归一化对比")
+
+    dimensions = ['收入(万元)', '用户数(万)', '评分', '市场份额(%)', '增长率(%)']
+    service_norm = RadarChartService(dimensions=dimensions, normalize=True)
+    service_norm.add_entity("公司A", [5000, 800, 4.5, 35, 120])
+    service_norm.add_entity("公司B", [3000, 1200, 4.8, 20, 80])
+    service_norm.add_entity("公司C", [8000, 500, 3.9, 45, 50])
+
+    service_norm.save("output/normalize_enabled.png",
+                      title="归一化雷达图（不同量纲维度）",
+                      rsteps=5)
+    print("已保存: output/normalize_enabled.png")
+
+    service_raw = RadarChartService(dimensions=dimensions, normalize=False)
+    service_raw.add_entity("公司A", [5000, 800, 4.5, 35, 120])
+    service_raw.add_entity("公司B", [3000, 1200, 4.8, 20, 80])
+    service_raw.add_entity("公司C", [8000, 500, 3.9, 45, 50])
+
+    service_raw.save("output/normalize_disabled.png",
+                     title="未归一化雷达图（不同量纲维度 - 失真）",
+                     rsteps=5)
+    print("已保存: output/normalize_disabled.png")
+
+
+def example_normalize_vs_raw():
+    print("\n示例7: 同一数据归一化 vs 未归一化对比")
+
+    dimensions = ['代码质量', '沟通效率', 'Bug率(个)', '代码行数(千)', '修复时长(小时)']
+    service = RadarChartService(dimensions=dimensions, normalize=True)
+
+    service.add_entity("开发者甲", [9.0, 7.5, 2, 50, 4])
+    service.add_entity("开发者乙", [6.5, 9.0, 15, 20, 12])
+
+    service.save("output/dev_comparison_normalized.png",
+                 title="开发者能力雷达图（归一化）",
+                 rsteps=5)
+    print("已保存: output/dev_comparison_normalized.png")
+
+    service_raw = RadarChartService(dimensions=dimensions, normalize=False)
+    service_raw.add_entity("开发者甲", [9.0, 7.5, 2, 50, 4])
+    service_raw.add_entity("开发者乙", [6.5, 9.0, 15, 20, 12])
+
+    service_raw.save("output/dev_comparison_raw.png",
+                     title="开发者能力雷达图（未归一化 - 失真）",
+                     rsteps=5)
+    print("已保存: output/dev_comparison_raw.png")
+
+
 if __name__ == "__main__":
     import os
     os.makedirs("output", exist_ok=True)
@@ -117,5 +166,7 @@ if __name__ == "__main__":
     example_multiple_entities()
     example_circle_frame()
     example_serialization()
+    example_normalize_different_scales()
+    example_normalize_vs_raw()
 
     print("\n所有示例运行完成！请查看 output 目录下的图片文件。")

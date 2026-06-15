@@ -69,13 +69,16 @@ def radar_factory(num_vars, frame='polygon'):
 
 
 class RadarChartService:
-    def __init__(self, dimensions: List[str], frame: str = 'polygon'):
+    def __init__(self, dimensions: List[str], frame: str = 'polygon',
+                 normalize: bool = True):
         if len(dimensions) < 3:
             raise ValueError("雷达图至少需要3个维度")
         self.dimensions = dimensions
         self.num_vars = len(dimensions)
         self.theta = radar_factory(self.num_vars, frame=frame)
         self.entities: List[Dict] = []
+        self.normalize = normalize
+        self._norm_ranges: Optional[Dict[str, Tuple[float, float]]] = None
         self.default_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
                                '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
                                '#bcbd22', '#17becf']
@@ -113,13 +116,41 @@ class RadarChartService:
                 alpha=entity.get('alpha', 0.25)
             )
 
+    def _compute_norm_ranges(self) -> Dict[str, Tuple[float, float]]:
+        ranges = {}
+        for i, dim in enumerate(self.dimensions):
+            dim_values = [e['scores'][i] for e in self.entities]
+            ranges[dim] = (min(dim_values), max(dim_values))
+        return ranges
+
+    def _normalize_scores(self, scores: List[float],
+                          ranges: Dict[str, Tuple[float, float]]) -> List[float]:
+        normalized = []
+        for i, dim in enumerate(self.dimensions):
+            dmin, dmax = ranges[dim]
+            if dmax == dmin:
+                normalized.append(0.5)
+            else:
+                normalized.append((scores[i] - dmin) / (dmax - dmin))
+        return normalized
+
+    def _denormalize_tick(self, norm_val: float,
+                          dmin: float, dmax: float) -> float:
+        if dmax == dmin:
+            return dmin
+        return dmin + norm_val * (dmax - dmin)
+
     def plot(self, title: str = "雷达图对比",
-             rmin: float = 0, rmax: Optional[float] = None,
+             rmin: Optional[float] = None, rmax: Optional[float] = None,
              rsteps: int = 5, figsize: Tuple[float, float] = (8, 8),
              show_grid: bool = True, legend_loc: str = 'lower right',
-             bbox_to_anchor: Optional[Tuple[float, float]] = None) -> plt.Figure:
+             bbox_to_anchor: Optional[Tuple[float, float]] = None,
+             normalize: Optional[bool] = None) -> plt.Figure:
         if not self.entities:
             raise ValueError("请先添加至少一个实体")
+
+        use_normalize = normalize if normalize is not None else self.normalize
+        ranges = self._compute_norm_ranges() if use_normalize else None
 
         fig = plt.figure(figsize=figsize)
         ax = fig.add_subplot(111, projection='radar')
@@ -129,19 +160,39 @@ class RadarChartService:
         else:
             ax.grid(False)
 
-        if rmax is None:
-            all_scores = [s for e in self.entities for s in e['scores']]
-            rmax = max(all_scores) * 1.1 if all_scores else 1.0
-
-        ax.set_rlim(rmin, rmax)
-        ax.set_rticks(np.linspace(rmin, rmax, rsteps + 1))
-        ax.set_varlabels(self.dimensions)
+        if use_normalize:
+            ax.set_rlim(0, 1)
+            tick_positions = np.linspace(0, 1, rsteps + 1)
+            all_ticks = []
+            for pos in tick_positions:
+                per_dim = []
+                for dim in self.dimensions:
+                    dmin, dmax = ranges[dim]
+                    per_dim.append(self._denormalize_tick(pos, dmin, dmax))
+                all_ticks.append(per_dim)
+            dim_tick_labels = []
+            for i, dim in enumerate(self.dimensions):
+                labels = [f"{t[i]:.1f}" for t in all_ticks]
+                dim_tick_labels.append(f"{dim}\n({'/'.join(labels[1:])})")
+            ax.set_rticks(tick_positions)
+            ax.set_yticklabels([f"{v:.1f}" for v in tick_positions], fontsize=7)
+            ax.set_varlabels(dim_tick_labels)
+        else:
+            if rmax is None:
+                all_scores = [s for e in self.entities for s in e['scores']]
+                rmax = max(all_scores) * 1.1 if all_scores else 1.0
+            if rmin is None:
+                rmin = 0
+            ax.set_rlim(rmin, rmax)
+            ax.set_rticks(np.linspace(rmin, rmax, rsteps + 1))
+            ax.set_varlabels(self.dimensions)
 
         for entity in self.entities:
             scores = entity['scores']
-            ax.plot(self.theta, scores, color=entity['color'],
+            plot_scores = self._normalize_scores(scores, ranges) if use_normalize else scores
+            ax.plot(self.theta, plot_scores, color=entity['color'],
                     linewidth=2, label=entity['name'])
-            ax.fill(self.theta, scores, color=entity['color'],
+            ax.fill(self.theta, plot_scores, color=entity['color'],
                     alpha=entity['alpha'])
 
         ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
@@ -168,6 +219,7 @@ class RadarChartService:
     def to_dict(self) -> Dict:
         return {
             'dimensions': self.dimensions,
+            'normalize': self.normalize,
             'entities': [
                 {
                     'name': e['name'],
@@ -181,6 +233,7 @@ class RadarChartService:
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'RadarChartService':
-        service = cls(dimensions=data['dimensions'])
+        service = cls(dimensions=data['dimensions'],
+                      normalize=data.get('normalize', True))
         service.add_entities(data['entities'])
         return service
